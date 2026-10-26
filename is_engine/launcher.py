@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Launcher - Starts AFK system with enabled cheats
-Uses pixel-based game state detection (like AutoIt script)
+Launcher - Starts mods automation with enabled cheats
+Implements mod functionality via input automation
 """
 
 import logging
@@ -31,53 +31,49 @@ def load_config() -> dict:
 
 
 def main():
-    """Start the AFK system"""
+    """Start the mods automation system"""
     try:
-        from .afk_system import system
+        from .mods_automation import system
     except (ImportError, ValueError):
-        # Try absolute import
         try:
-            from is_engine.afk_system import system
+            from is_engine.mods_automation import system
         except ImportError:
-            logger.error("Failed to import afk_system")
+            logger.error("Failed to import mods_automation")
             return
 
-    logger.info("Starting Idle Slayer AFK System...")
-    logger.info("Using pixel-based game state detection")
+    logger.info("Starting Idle Slayer Mods Automation...")
+    logger.info("Based on: AutoBoost, AutoRage, AutoFarm, BonusStageCompleter, QuestAutoComplete, MinionCollector")
 
-    # Load enabled cheats
+    # Load enabled cheats from config
     config = load_config()
     logger.info(f"Loaded cheat config: {list(config.keys())}")
 
-    # Map cheats to actions
-    cheat_to_action = {
-        "autofarm_coins": "basic_farming",
-        "autofarm_slayer": "basic_farming",
-        "auto_ascend": "collect_silver_box",
-        "auto_minions": "collect_minion",
-        "auto_ads": "collect_silver_box",
-        "auto_rage": "rage_megahorde",
-        "quest_router": "claim_quests",
+    # Map cheats to mod names
+    cheat_to_mod = {
+        "autofarm_coins": "auto_farm",
+        "autofarm_slayer": "auto_farm",
+        "auto_ascend": "auto_boost",
+        "auto_minions": "minion_collect",
+        "auto_rage": "auto_rage",
+        "quest_router": "quest_complete",
+        "bonus_stage": "bonus_complete",
     }
 
-    # Enable actions based on cheat config
+    # Enable mods based on cheat config
+    enabled_count = 0
     for cheat_id, enabled in config.items():
-        if enabled and cheat_id in cheat_to_action:
-            action_name = cheat_to_action[cheat_id]
-            system.enable_action(action_name)
-            logger.info(f"Enabled: {cheat_id} → {action_name}")
+        if enabled and cheat_id in cheat_to_mod:
+            mod_name = cheat_to_mod[cheat_id]
+            system.enable_mod(mod_name)
+            logger.info(f"Enabled: {cheat_id} → {mod_name}")
+            enabled_count += 1
 
-    # Always enable core collection actions
-    core_actions = ["collect_silver_box", "claim_quests", "rage_soul_bonus", "collect_minion"]
-    for action in core_actions:
-        system.enable_action(action)
-
-    logger.info("Core actions enabled: " + ", ".join(core_actions))
+    logger.info(f"Total enabled mods: {enabled_count}")
     logger.info(f"Status: {system.get_status()}")
 
     # Start system
     system.start()
-    logger.info("AFK System running. Press Ctrl+C to stop.")
+    logger.info("Mods automation running. Press Ctrl+C to stop.")
 
     # Keep running
     try:
@@ -86,7 +82,7 @@ def main():
     except KeyboardInterrupt:
         logger.info("Shutting down...")
         system.stop()
-        logger.info("AFK System stopped.")
+        logger.info("Mods automation stopped.")
 
 
 if __name__ == "__main__":
