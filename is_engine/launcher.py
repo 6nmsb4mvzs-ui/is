@@ -32,21 +32,33 @@ def load_config() -> dict:
 
 def main():
     """Start the mods automation system"""
+    logger.info("=" * 70)
+    logger.info("LAUNCHER STARTUP")
+    logger.info("=" * 70)
+
     try:
         from .mods_automation import system
-    except (ImportError, ValueError):
+        logger.info("✓ Imported mods_automation (relative)")
+    except (ImportError, ValueError) as e:
+        logger.warning(f"Relative import failed: {e}")
         try:
             from is_engine.mods_automation import system
-        except ImportError:
-            logger.error("Failed to import mods_automation")
+            logger.info("✓ Imported mods_automation (absolute)")
+        except ImportError as e2:
+            logger.error(f"✗ Failed to import mods_automation: {e2}")
             return
 
     logger.info("Starting Idle Slayer Mods Automation...")
-    logger.info("Based on: AutoBoost, AutoRage, AutoFarm, BonusStageCompleter, QuestAutoComplete, MinionCollector")
 
     # Load enabled cheats from config
+    config_path = Path.home() / ".idle_slayer_cheat" / "cheats.json"
+    logger.info(f"Config file: {config_path}")
+    logger.info(f"Config exists: {config_path.exists()}")
+
     config = load_config()
-    logger.info(f"Loaded cheat config: {list(config.keys())}")
+    logger.info(f"Config contents ({len(config)} items):")
+    for cheat_id, enabled in sorted(config.items()):
+        logger.info(f"  {cheat_id:30} = {enabled}")
 
     # Map cheats to mod names
     cheat_to_mod = {
@@ -61,19 +73,42 @@ def main():
 
     # Enable mods based on cheat config
     enabled_count = 0
-    for cheat_id, enabled in config.items():
-        if enabled and cheat_id in cheat_to_mod:
-            mod_name = cheat_to_mod[cheat_id]
-            system.enable_mod(mod_name)
-            logger.info(f"Enabled: {cheat_id} → {mod_name}")
-            enabled_count += 1
+    disabled_count = 0
+    unmapped_count = 0
 
-    logger.info(f"Total enabled mods: {enabled_count}")
-    logger.info(f"Status: {system.get_status()}")
+    logger.info("-" * 70)
+    logger.info("Enabling mods:")
+
+    for cheat_id, enabled in config.items():
+        if enabled:
+            if cheat_id in cheat_to_mod:
+                mod_name = cheat_to_mod[cheat_id]
+                system.enable_mod(mod_name)
+                logger.info(f"  ✓ {cheat_id:28} → {mod_name}")
+                enabled_count += 1
+            else:
+                logger.info(f"  ⚠ {cheat_id:28} (no mod implementation)")
+                unmapped_count += 1
+        else:
+            disabled_count += 1
+
+    logger.info("-" * 70)
+    logger.info(f"Summary: {enabled_count} enabled | {disabled_count} disabled | {unmapped_count} unmapped")
+
+    status = system.get_status()
+    logger.info(f"System status: {status}")
+    logger.info("-" * 70)
 
     # Start system
-    system.start()
-    logger.info("Mods automation running. Press Ctrl+C to stop.")
+    if enabled_count > 0:
+        logger.info("Starting mods automation loop...")
+        system.start()
+        logger.info("✓ Mods automation started. Press Ctrl+C to stop.")
+        logger.info("=" * 70)
+    else:
+        logger.warning("✗ No mods enabled - nothing to do")
+        logger.info("=" * 70)
+        return
 
     # Keep running
     try:

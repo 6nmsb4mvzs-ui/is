@@ -46,27 +46,35 @@ class GameInput:
             return
 
         with self.lock:
-            for _ in range(repeat):
+            for i in range(repeat):
                 try:
-                    subprocess.run(
-                        ['osascript', '-e', f'tell application "System Events" to key code {keycode}'],
-                        capture_output=True, timeout=1
+                    cmd = f'tell application "System Events" to key code {keycode}'
+                    result = subprocess.run(
+                        ['osascript', '-e', cmd],
+                        capture_output=True, timeout=1, text=True
                     )
+                    if result.returncode != 0:
+                        logger.error(f"AppleScript error for key '{key}' (code {keycode}): {result.stderr}")
+                    # logger.debug(f"Key pressed: {key} (code {keycode}, repeat {i+1}/{repeat})")
                     time.sleep(duration)
                 except Exception as e:
-                    logger.error(f"Key press failed: {e}")
+                    logger.error(f"Key press failed for '{key}': {e}")
 
     def click(self, x: int, y: int, delay: float = 0.2):
         """Click at position"""
         with self.lock:
             try:
-                subprocess.run(
-                    ['osascript', '-e', f'tell application "System Events" to click at {{{x}, {y}}}'],
-                    capture_output=True, timeout=1
+                cmd = f'tell application "System Events" to click at {{{x}, {y}}}'
+                result = subprocess.run(
+                    ['osascript', '-e', cmd],
+                    capture_output=True, timeout=1, text=True
                 )
+                if result.returncode != 0:
+                    logger.error(f"AppleScript click error at ({x}, {y}): {result.stderr}")
+                # logger.debug(f"Clicked at ({x}, {y})")
                 time.sleep(delay)
             except Exception as e:
-                logger.error(f"Click failed: {e}")
+                logger.error(f"Click failed at ({x}, {y}): {e}")
 
 
 class Mod:
@@ -78,16 +86,20 @@ class Mod:
         self.enabled = False
         self.last_run = 0
         self.min_interval = 1.0
+        self.run_count = 0
 
     def can_run(self) -> bool:
-        return time.time() - self.last_run >= self.min_interval
+        elapsed = time.time() - self.last_run
+        ready = elapsed >= self.min_interval
+        return ready
 
     def run(self):
         """Override in subclass"""
         pass
 
     def log(self, msg: str):
-        logger.info(f"[{self.name}] {msg}")
+        self.run_count += 1
+        logger.info(f"[{self.name:25}] {msg} (run #{self.run_count})")
 
 
 class AutoBoost(Mod):
@@ -98,18 +110,21 @@ class AutoBoost(Mod):
         self.min_interval = 15.0  # Boost cooldown ~15s
 
     def run(self):
-        if not self.enabled or not self.can_run():
+        if not self.enabled:
+            return
+
+        if not self.can_run():
             return
 
         # Press B for boost
         self.input.key_press("b", duration=0.1)
-        self.log("Boost activated")
+        self.log("Boost activated (B)")
         self.last_run = time.time()
 
         # Optionally press N for wind dash (5s later)
         time.sleep(5)
         self.input.key_press("n", duration=0.1)
-        self.log("Wind dash activated")
+        self.log("Wind dash activated (N)")
 
 
 class AutoRage(Mod):
@@ -283,15 +298,22 @@ class ModsAutomation:
 
     def _main_loop(self):
         """Main automation loop"""
+        loop_count = 0
         while self.running:
             try:
+                loop_count += 1
+
                 # Run all enabled mods
-                for mod in self.mods.values():
-                    if mod.enabled:
+                enabled_mods = [mod for mod in self.mods.values() if mod.enabled]
+                if enabled_mods:
+                    for mod in enabled_mods:
                         try:
                             mod.run()
                         except Exception as e:
-                            logger.error(f"Mod error: {e}")
+                            logger.error(f"Mod {mod.name} error: {e}")
+                else:
+                    if loop_count % 100 == 0:  # Log every 10 seconds
+                        logger.warning("No mods enabled - idle loop")
 
                 time.sleep(self.loop_interval)
             except Exception as e:
