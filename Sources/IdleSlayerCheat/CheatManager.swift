@@ -120,21 +120,41 @@ class CheatManager: ObservableObject {
         }
     }
 
+    func toggleEngine() {
+        if isRunning {
+            stop()
+        } else {
+            start()
+        }
+    }
+
     func start() {
+        if isRunning { return }
+
+        DispatchQueue.main.async {
+            self.isRunning = true
+            self.statusMessage = "Starting..."
+        }
+
         DispatchQueue.global().async {
             self.startEngine()
             DispatchQueue.main.async {
-                self.isRunning = true
                 self.statusMessage = "Running - \(self.activeCheatsCount) cheats active"
             }
         }
     }
 
     func stop() {
+        if !isRunning { return }
+
+        DispatchQueue.main.async {
+            self.isRunning = false
+            self.statusMessage = "Stopping..."
+        }
+
         DispatchQueue.global().async {
             self.stopEngine()
             DispatchQueue.main.async {
-                self.isRunning = false
                 self.statusMessage = "Stopped"
             }
         }
@@ -243,6 +263,7 @@ class CheatManager: ObservableObject {
     }
 
     private func updateStatus() {
+        // Only update active cheat count from Python, don't touch running state
         let pythonCode = """
         import sys
         import json
@@ -250,12 +271,9 @@ class CheatManager: ObservableObject {
         try:
             from is_engine.core import engine
             active = len([c for c in engine.state.active_cheats.values() if c])
-            print(json.dumps({
-                'running': engine.running,
-                'active_count': active
-            }))
+            print(json.dumps({'active_count': active}))
         except:
-            print(json.dumps({'running': False, 'active_count': 0}))
+            print(json.dumps({'active_count': 0}))
         """
 
         let process = Process()
@@ -273,7 +291,8 @@ class CheatManager: ObservableObject {
            let jsonData = output.data(using: .utf8),
            let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
             DispatchQueue.main.async {
-                self.isRunning = json["running"] as? Bool ?? false
+                let activeCount = json["active_count"] as? Int ?? 0
+                self.activeCheatsCount = activeCount
             }
         }
     }

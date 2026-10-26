@@ -128,51 +128,31 @@ struct ContentView: View {
             Divider()
                 .background(Color(red: 0, green: 0.83, blue: 1).opacity(0.3))
 
-            // Controls
-            HStack(spacing: 12) {
-                Button(action: manager.start) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "play.fill")
-                        Text("START")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(12)
-                    .background(
-                        LinearGradient(
-                            gradient: Gradient(colors: [
+            // Toggle Button
+            Button(action: manager.toggleEngine) {
+                HStack(spacing: 8) {
+                    Image(systemName: manager.isRunning ? "stop.fill" : "play.fill")
+                    Text(manager.isRunning ? "STOP" : "START")
+                }
+                .frame(maxWidth: .infinity)
+                .padding(14)
+                .background(
+                    LinearGradient(
+                        gradient: Gradient(colors: [
+                            manager.isRunning ?
+                                Color(red: 1, green: 0.2, blue: 0.2) :
                                 Color(red: 0, green: 0.8, blue: 0),
+                            manager.isRunning ?
+                                Color(red: 0.7, green: 0, blue: 0) :
                                 Color(red: 0, green: 0.6, blue: 0)
-                            ]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
+                        ]),
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
                     )
-                    .foregroundColor(.black)
-                    .font(.system(size: 13, weight: .bold))
-                    .cornerRadius(6)
-                }
-
-                Button(action: manager.stop) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "stop.fill")
-                        Text("STOP")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(12)
-                    .background(
-                        LinearGradient(
-                            gradient: Gradient(colors: [
-                                Color(red: 1, green: 0.2, blue: 0.2),
-                                Color(red: 0.7, green: 0, blue: 0)
-                            ]),
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .foregroundColor(.white)
-                    .font(.system(size: 13, weight: .bold))
-                    .cornerRadius(6)
-                }
+                )
+                .foregroundColor(manager.isRunning ? .white : .black)
+                .font(.system(size: 14, weight: .bold))
+                .cornerRadius(6)
             }
             .padding(12)
             .background(Color(red: 0.08, green: 0.08, blue: 0.18))
