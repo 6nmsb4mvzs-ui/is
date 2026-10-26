@@ -43,18 +43,29 @@ class Pixel:
         val = self.hex_value
         return ((val >> 16) & 255, (val >> 8) & 255, val & 255)
 
-    def detect(self, tolerance: int = 20) -> bool:
+    def detect(self, tolerance: int = 20, debug: bool = False) -> bool:
         """Check if this exact pixel is at this location"""
         try:
             screenshot = ImageGrab.grab()
             if self.x < 0 or self.y < 0 or self.x >= screenshot.width or self.y >= screenshot.height:
+                if debug:
+                    logger.debug(f"{self.name}: Out of bounds ({self.x}, {self.y})")
                 return False
 
             pixel = screenshot.getpixel((self.x, self.y))[:3]
             expected = self.rgb
+            match = all(abs(pixel[i] - expected[i]) <= tolerance for i in range(3))
 
-            return all(abs(pixel[i] - expected[i]) <= tolerance for i in range(3))
-        except:
+            if debug:
+                if match:
+                    logger.info(f"✓ {self.name} DETECTED at ({self.x},{self.y}): {pixel} vs {expected}")
+                else:
+                    logger.debug(f"✗ {self.name}: got {pixel}, expected {expected} (±{tolerance})")
+
+            return match
+        except Exception as e:
+            if debug:
+                logger.error(f"{self.name}: Error: {e}")
             return False
 
 

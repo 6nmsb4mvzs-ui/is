@@ -33,10 +33,14 @@ def load_config() -> dict:
 def main():
     """Start the AFK system"""
     try:
-        from afk_system import system
-    except ImportError:
-        logger.error("Failed to import afk_system")
-        return
+        from .afk_system import system
+    except (ImportError, ValueError):
+        # Try absolute import
+        try:
+            from is_engine.afk_system import system
+        except ImportError:
+            logger.error("Failed to import afk_system")
+            return
 
     logger.info("Starting Idle Slayer AFK System...")
     logger.info("Using pixel-based game state detection")
