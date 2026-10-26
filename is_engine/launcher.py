@@ -1,74 +1,89 @@
 #!/usr/bin/env python3
-"""Idle Slayer Cheat Engine - Proper launcher with handler registration"""
+"""
+Launcher - Starts AFK system with enabled cheats
+Uses pixel-based game state detection (like AutoIt script)
+"""
 
-import sys
-import json
-import time
 import logging
+import time
+import json
 from pathlib import Path
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format='%(asctime)s [%(levelname)s] %(message)s'
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('Launcher')
+
+
+def load_config() -> dict:
+    """Load cheat configuration from JSON"""
+    config_path = Path.home() / ".idle_slayer_cheat" / "cheats.json"
+
+    if config_path.exists():
+        try:
+            with open(config_path, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Error loading config: {e}")
+
+    return {}
+
 
 def main():
+    """Start the AFK system"""
     try:
-        # Import after path is set
-        from .core import engine, CheatMode
-        from .cheats import CHEATS
+        from afk_system import system
+    except ImportError:
+        logger.error("Failed to import afk_system")
+        return
 
-        logger.info("Idle Slayer Cheat Engine v2.1 Starting...")
-        logger.info(f"Cheats available: {len(CHEATS)}")
+    logger.info("Starting Idle Slayer AFK System...")
+    logger.info("Using pixel-based game state detection")
 
-        # Register all cheat handlers
-        for cheat_id, cheat_obj in CHEATS.items():
-            try:
-                mode = CheatMode(cheat_id)
-                engine.register_handler(mode, cheat_obj.run)
-                logger.info(f"  ✓ Registered {mode.value}")
-            except Exception as e:
-                logger.error(f"  ✗ Failed to register {cheat_id}: {e}")
+    # Load enabled cheats
+    config = load_config()
+    logger.info(f"Loaded cheat config: {list(config.keys())}")
 
-        logger.info(f"Total handlers registered: {len(engine.handlers)}")
+    # Map cheats to actions
+    cheat_to_action = {
+        "autofarm_coins": "basic_farming",
+        "autofarm_slayer": "basic_farming",
+        "auto_ascend": "collect_silver_box",
+        "auto_minions": "collect_minion",
+        "auto_ads": "collect_silver_box",
+        "auto_rage": "rage_megahorde",
+        "quest_router": "claim_quests",
+    }
 
-        # Load saved state
-        config_file = Path.home() / ".idle_slayer_cheat" / "cheats.json"
-        if config_file.exists():
-            try:
-                with open(config_file) as f:
-                    saved_state = json.load(f)
-                    loaded_count = 0
-                    for cheat_id, enabled in saved_state.items():
-                        try:
-                            mode = CheatMode(cheat_id)
-                            engine.state.active_cheats[mode] = enabled
-                            if enabled:
-                                loaded_count += 1
-                        except:
-                            pass
-                    logger.info(f"Loaded state: {loaded_count} cheats enabled")
-            except Exception as e:
-                logger.error(f"Failed to load state: {e}")
+    # Enable actions based on cheat config
+    for cheat_id, enabled in config.items():
+        if enabled and cheat_id in cheat_to_action:
+            action_name = cheat_to_action[cheat_id]
+            system.enable_action(action_name)
+            logger.info(f"Enabled: {cheat_id} → {action_name}")
 
-        # Start engine
-        logger.info("Starting automation engine...")
-        engine.start()
-        logger.info("Engine running. Press Ctrl+C to stop.")
+    # Always enable core collection actions
+    core_actions = ["collect_silver_box", "claim_quests", "rage_soul_bonus", "collect_minion"]
+    for action in core_actions:
+        system.enable_action(action)
 
-        # Keep alive
-        try:
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            logger.info("Stopping engine...")
-            engine.stop()
-            logger.info("Engine stopped.")
+    logger.info("Core actions enabled: " + ", ".join(core_actions))
+    logger.info(f"Status: {system.get_status()}")
 
-    except Exception as e:
-        logger.error(f"Fatal error: {e}", exc_info=True)
-        sys.exit(1)
+    # Start system
+    system.start()
+    logger.info("AFK System running. Press Ctrl+C to stop.")
+
+    # Keep running
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        logger.info("Shutting down...")
+        system.stop()
+        logger.info("AFK System stopped.")
+
 
 if __name__ == "__main__":
     main()
