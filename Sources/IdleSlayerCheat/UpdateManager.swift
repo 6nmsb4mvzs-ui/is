@@ -8,7 +8,7 @@ class UpdateManager: ObservableObject {
     @Published var isChecking = false
     @Published var updateMessage = ""
 
-    private let appVersion = "2.4.0"
+    private let appVersion = "2.4.1"
     private let repoOwner = "6nmsb4mvzs-ui"
     private let repoName = "is"
 
