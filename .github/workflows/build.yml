@@ -1,0 +1,58 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Build Swift app
+      run: |
+        cd ${{ github.workspace }}
+        swift build -c release --quiet
+
+    - name: Create app bundle
+      run: |
+        APP_DIR="./build/Idle_Slayer_Cheat.app"
+        mkdir -p "$APP_DIR/Contents/MacOS"
+        mkdir -p "$APP_DIR/Contents/Resources"
+        cp .build/release/IdleSlayerCheat "$APP_DIR/Contents/MacOS/"
+
+        cat > "$APP_DIR/Contents/Info.plist" << 'PLIST'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>CFBundleName</key>
+            <string>Idle Slayer Cheat</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.idle.slayer.cheat</string>
+            <key>CFBundleVersion</key>
+            <string>${{ github.ref_name }}</string>
+            <key>CFBundleExecutable</key>
+            <string>IdleSlayerCheat</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+        </dict>
+        </plist>
+        PLIST
+
+    - name: Create zip
+      run: |
+        cd build
+        zip -r Idle_Slayer_Cheat-${{ github.ref_name }}.zip Idle_Slayer_Cheat.app
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: build/Idle_Slayer_Cheat-${{ github.ref_name }}.zip
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
