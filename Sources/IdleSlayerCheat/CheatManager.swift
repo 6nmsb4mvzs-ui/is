@@ -21,6 +21,8 @@ class CheatManager: ObservableObject {
         loadState()
         // Ensure config file exists (even if empty) so launcher has something to read
         ensureConfigExists()
+        // Try to setup is_engine if needed
+        setupEngine()
         startStatusMonitoring()
         setupGlobalHotkey()
     }
@@ -43,6 +45,20 @@ class CheatManager: ObservableObject {
                 print("[CheatManager] Created initial config file")
             }
         }
+    }
+
+    private func setupEngine() {
+        let fileManager = FileManager.default
+        let configDir = "\(NSHomeDirectory())/.idle_slayer_cheat"
+        let isEngineDir = "\(configDir)/is_engine"
+
+        // Check if is_engine already exists
+        if fileManager.fileExists(atPath: isEngineDir) {
+            print("[CheatManager] is_engine found at \(isEngineDir)")
+            return
+        }
+
+        print("[CheatManager] is_engine not found at \(isEngineDir)")
     }
 
     func setWindow(_ window: NSWindow) {

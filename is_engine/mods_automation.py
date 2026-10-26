@@ -254,12 +254,16 @@ class ModsAutomation:
         if mod_name in self.mods:
             self.mods[mod_name].enabled = True
             logger.info(f"Enabled: {mod_name}")
+        else:
+            logger.warning(f"Mod not found: {mod_name} (available: {list(self.mods.keys())})")
 
     def disable_mod(self, mod_name: str):
         """Disable a mod"""
         if mod_name in self.mods:
             self.mods[mod_name].enabled = False
             logger.info(f"Disabled: {mod_name}")
+        else:
+            logger.warning(f"Mod not found: {mod_name}")
 
     def start(self):
         """Start automation"""
