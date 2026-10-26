@@ -5,7 +5,7 @@ class CheatManager: ObservableObject {
     @Published var cheats: [Cheat] = []
     @Published var isRunning: Bool = false
     @Published var activeCheatsCount: Int = 0
-    @Published var appVersion: String = "2.0.0"
+    @Published var appVersion: String = "3.0.0"
     @Published var lastUpdateCheck: Date = Date()
     @Published var statusMessage: String = "Ready"
 
@@ -19,8 +19,30 @@ class CheatManager: ObservableObject {
         self.configPath = "\(NSHomeDirectory())/.idle_slayer_cheat/cheats.json"
         loadCheats()
         loadState()
+        // Ensure config file exists (even if empty) so launcher has something to read
+        ensureConfigExists()
         startStatusMonitoring()
         setupGlobalHotkey()
+    }
+
+    private func ensureConfigExists() {
+        let fileManager = FileManager.default
+        let dirPath = "\(NSHomeDirectory())/.idle_slayer_cheat"
+
+        // Create directory if needed
+        try? fileManager.createDirectory(atPath: dirPath, withIntermediateDirectories: true)
+
+        // Create config file if it doesn't exist
+        if !fileManager.fileExists(atPath: configPath) {
+            var initialState: [String: Bool] = [:]
+            for cheat in cheats {
+                initialState[cheat.id] = false
+            }
+            if let data = try? JSONSerialization.data(withJSONObject: initialState),
+               let _ = try? data.write(to: URL(fileURLWithPath: configPath)) {
+                print("[CheatManager] Created initial config file")
+            }
+        }
     }
 
     func setWindow(_ window: NSWindow) {
@@ -97,27 +119,10 @@ class CheatManager: ObservableObject {
     }
 
     private func syncCheatState(id: String, enabled: Bool) {
-        let pythonCode = """
-        import sys
-        sys.path.insert(0, '\(NSHomeDirectory())/.idle_slayer_cheat')
-        try:
-            from is_engine.core import engine, CheatMode
-            mode = CheatMode('\(id)')
-            current = engine.state.active_cheats.get(mode, False)
-            target = \(enabled ? "True" : "False")
-            if current != target:
-                engine.state.toggle_cheat(mode)
-        except Exception as e:
-            print(f"Sync error: {e}")
-        """
-
-        DispatchQueue.global().async {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
-            process.arguments = ["-c", pythonCode]
-            try? process.run()
-            process.waitUntilExit()
-        }
+        // Config is saved to disk in saveState()
+        // Launcher reads it on next iteration and enables/disables mods accordingly
+        // Just log for debugging
+        print("[CheatManager] Synced \(id) to \(enabled ? "ON" : "OFF") (saved to disk)")
     }
 
     func toggleEngine() {
@@ -225,37 +230,6 @@ class CheatManager: ObservableObject {
         }
     }
 
-    private func updateEngineState() {
-        guard isRunning else { return }
-
-        let enabledCheats = cheats.filter { $0.enabled }.map { $0.id }.joined(separator: ",")
-
-        let pythonCode = """
-        import sys
-        sys.path.insert(0, '\(NSHomeDirectory())/.idle_slayer_cheat')
-        try:
-            from is_engine.core import engine, CheatMode
-            enabled = '\(enabledCheats)'.split(',') if '\(enabledCheats)' else []
-            for cheat_id in enabled:
-                try:
-                    mode = CheatMode(cheat_id)
-                    if mode not in engine.state.active_cheats or not engine.state.active_cheats[mode]:
-                        engine.state.toggle_cheat(mode)
-                except:
-                    pass
-        except:
-            pass
-        """
-
-        DispatchQueue.global().async {
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
-            process.arguments = ["-c", pythonCode]
-            try? process.run()
-            process.waitUntilExit()
-        }
-    }
-
     private func startStatusMonitoring() {
         statusTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
             self.updateStatus()
@@ -263,37 +237,9 @@ class CheatManager: ObservableObject {
     }
 
     private func updateStatus() {
-        // Only update active cheat count from Python, don't touch running state
-        let pythonCode = """
-        import sys
-        import json
-        sys.path.insert(0, '\(NSHomeDirectory())/.idle_slayer_cheat')
-        try:
-            from is_engine.core import engine
-            active = len([c for c in engine.state.active_cheats.values() if c])
-            print(json.dumps({'active_count': active}))
-        except:
-            print(json.dumps({'active_count': 0}))
-        """
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
-        process.arguments = ["-c", pythonCode]
-
-        let pipe = Pipe()
-        process.standardOutput = pipe
-
-        try? process.run()
-        process.waitUntilExit()
-
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        if let output = String(data: data, encoding: .utf8),
-           let jsonData = output.data(using: .utf8),
-           let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
-            DispatchQueue.main.async {
-                let activeCount = json["active_count"] as? Int ?? 0
-                self.activeCheatsCount = activeCount
-            }
+        // Count enabled cheats locally
+        DispatchQueue.main.async {
+            self.activeCheatsCount = self.cheats.filter { $0.enabled }.count
         }
     }
 
